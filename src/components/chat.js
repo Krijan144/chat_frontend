@@ -1,38 +1,66 @@
 import React, { useState, useEffect } from "react";
 import { io } from "socket.io-client";
-import { Card } from "react-bootstrap";
+import queryString from 'query-string'
+import InfoBar from "./Infobar/InfoBar";
+import Input from "./input/input";
+import Messages from "./Messages";
+import TextContainer from "./textcontainer/TextContainer";
 
-//const socket = openSocket("http://localhost:4000");
 
-const Chat = () => {
-  const [chat, setChat] = useState();
+let socket;
+
+const Chat = ({ location }) => {
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [room, setRoom] = useState('');
+  const [name, setName] = useState('');
+  const [users, setUsers] = useState()
+  const ENDPOINT = "http://localhost:4000"
 
   useEffect(() => {
-    const socket = io.connect("http://localhost:4000");
-    socket.on("message", (data) => {
-      console.log(data);
-      setChat(data);
+    const { name, room } = queryString.parse(location.search)
+    setName(name);
+    setRoom(room);
+
+    socket = io.connect(ENDPOINT);
+    socket.on('tests', (msg) => {
+      console.log(msg);
+    })
+    socket.emit('join', { name, room }, (error) => {
+      if (error) {
+        alert(error);
+      }
     });
-  }, []);
+  }, [ENDPOINT, location.search]);
+
+  useEffect(() => {
+    socket.on("message", (message) => {
+      setMessages([...messages, message])
+    })
+
+    socket.on("roomUsers", ({ users }) => {
+      setUsers(users)
+    })
+  }, [message])
+
+  const sendMessage = (e) => {
+    e.preventDefault();
+    if (message) {
+      socket.emit('chatMessage', message, () => {
+        setMessage('')
+      })
+    }
+  }
 
   return (
-    <div className="container">
-      <h4>Chat App</h4>
-      <Card className="bg-dark text-white ">
-        <Card.Img
-          src="https://mir-s3-cdn-cf.behance.net/project_modules/disp/1ce52173426833.5c08f56353039.png"
-          alt="Card image"
-        />
-        <Card.ImgOverlay>
-          <Card.Title>
-            {chat.map((chats) => {
-              return chats.message;
-            })}
-          </Card.Title>
-          <Card.Text></Card.Text>
-          <Card.Text>Last updated 3 mins ago</Card.Text>
-        </Card.ImgOverlay>
-      </Card>
+    <div>
+      <div className="container mt-5">
+        <h4>Chat App</h4>
+        <InfoBar room={room} />
+        <Messages message={messages} name={name} users={users} />
+        <Input message={message} setMessage={setMessage} sendMessage={sendMessage} />
+      </div>
+      {/* <TextContainer users={users} /> */}
     </div>
   );
 };
